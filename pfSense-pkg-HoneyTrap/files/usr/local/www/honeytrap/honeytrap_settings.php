@@ -45,6 +45,12 @@ if ($_POST && isset($_POST['save'])) {
 		unset($gconfig['truncate']);
 	}
 
+	if (isset($_POST['root']) && $_POST['root'] == 'on') {
+		$gconfig['root'] = $_POST['root'];
+	} else {
+		unset($gconfig['root']);
+	}
+
 	if (isset($_POST['config_file'])) {
 		$part_parts = pathinfo($_POST['config_file']);
 		if ($part_parts['extension'] != 'toml') {
@@ -96,10 +102,17 @@ $section->addInput(new Form_Checkbox(
 $form->add($section);
 
 $section = new Form_Section('Service Settings');
-$section->addInput(new Form_Checkbox(
+$section->addinput(new Form_Checkbox(
+	'root',
+	'Run as root',
+	'run the service as root',
+	$gconfig['root'] === 'on' ? true:false,
+	'on'
+));
+$section->addinput(new Form_Checkbox(
 	'truncate',
 	'Truncate',
-	'Truncate service output logs on service start',
+	'truncate service output logs on service start',
 	$gconfig['truncate'] === 'on' ? true:false,
 	'on'
 ));

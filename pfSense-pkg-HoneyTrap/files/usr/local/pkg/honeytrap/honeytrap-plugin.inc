@@ -27,7 +27,7 @@ function honeytrap_sync_config() {
 	init_config_arr(array('installedpackages', 'honeytrap', 'config', 0));
 	$gconfig = $config['installedpackages']['honeytrap']['config'][0];
 
-	if (is_service_running('honeytrap')){
+	if (is_service_running('honeytrap')) {
 		log_error('Stopping service honeytrap');
 		stop_service('honeytrap');
 	}
@@ -36,6 +36,13 @@ function honeytrap_sync_config() {
 		return;
 	}
 
+    if (isset($gconfig['root']) && $gconfig['root'] == 'on') {
+        $user = '';
+    } else {
+        $user = '-u honeytrap';
+        honeytrap_check_data_dir();
+    }
+
 	$config_file = $gconfig['config_file'];
 	$stdout = "{$g['varlog_path']}/honeytrap/service.log";
 
@@ -43,7 +50,7 @@ function honeytrap_sync_config() {
 	$data_dir = '/usr/local/pkg/honeytrap/.data/';
 	$pid = "{$g['varrun_path']}/honeytrap.pid";
 	$stop = "/bin/kill -INT `/bin/cat {$pid}`";
-	$start = "/usr/sbin/daemon -o {$stdout} -p {$pid} -u honeytrap {$daemon} --data {$data_dir} --config {$config_file}";
+	$start = "/usr/sbin/daemon -o {$stdout} -p {$pid} {$user} {$daemon} --data {$data_dir} --config {$config_file}";
 	if (isset($gconfig['truncate']) && $gconfig['truncate'] === 'on') {
 		$clear = "/usr/bin/truncate -c -s 0 {$stdout}".PHP_EOL;
 		$start = $clear ."\t". $start;
@@ -62,6 +69,36 @@ function honeytrap_sync_config() {
 
 	log_error('Starting service honeytrap');
 	start_service('honeytrap');
+}
+
+function honeytrap_check_data_dir() {
+    $honeytrap_user = posix_getpwnam('honeytrap');
+    if (fileowner('/usr/local/pkg/honeytrap/.data/token') != $honeytrap_user['uid']) {
+        if (!chown('/usr/local/pkg/honeytrap/.data/token', $honeytrap_user['uid'])) {
+            log_error('Could not change file owner');
+        }
+    } else {
+        log_error('file already owned by honeytrap');
+    }
+
+    if (fileowner('/usr/local/pkg/honeytrap/.data/badger.db') != $honeytrap_user['uid']) {
+        if (!chown('/usr/local/pkg/honeytrap/.data/badger.db', $honeytrap_user['uid'])) {
+            log_error('Could not change file owner');
+        }
+    } else {
+        log_error('file already owned by honeytrap');
+    }
+
+    foreach (return_dir_as_array('/usr/local/pkg/honeytrap/.data/badger.db') as $file) {
+        $owner = fileowner("/usr/local/pkg/honeytrap/.data/badger.db/{$file}");
+        if (fileowner("/usr/local/pkg/honeytrap/.data/badger.db/{$file}") != $honeytrap_user['uid']) {
+            if (!chown("/usr/local/pkg/honeytrap/.data/badger.db/{$file}", $honeytrap_user['uid'])) {
+                log_error('Could not change file owner');
+            }
+        } else {
+            log_error("{$file} already owned by {$honeytrap_user['name']} uid {$honeytrap_user['uid']}");
+        }
+    }
 }
 
 function honeytrap_install() {
